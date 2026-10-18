@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6fb7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Ma semaine de cours</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{padding-block:env(safe-area-inset-top,0px) env(safe-area-inset-bottom,0px)}
+body{margin:0}
+/* Layout : bandeau de navigation, puis 5 colonnes jour (empilées sur téléphone) */
+:root{
+  --bg:#f6f7f4; --surface:#ffffff; --fg:#1d2321; --muted:#5d6763; --line:#dde2de;
+  --lun:#2f6fb7; --mar:#2e8a57; --mer:#c98a12; --jeu:#7a4fb5; --ven:#c4415f;
+  --lun-bg:#e6eef8; --mar-bg:#e4f2ea; --mer-bg:#fbf1dc; --jeu-bg:#efe8f8; --ven-bg:#f9e5ea;
+  --c6A:#0e7c86; --c6B:#14a3a0; --c6C:#5cc2b3;
+  --c5B:#b5446e; --c5C:#e07a5f;
+  --hg:#1f3a5f; --hg-fg:#ffffff; --emc:#f2c14e; --emc-fg:#3a2a00;
+  --eval:#c62828;
+  --display:"Fraunces",Georgia,serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1d2421; --fg:#eef2ef; --muted:#a4afaa; --line:#2f3934;
+  --lun:#7fb0ec; --mar:#6fd09a; --mer:#f0be5a; --jeu:#b99bea; --ven:#f08aa3;
+  --lun-bg:#1c2a3b; --mar-bg:#1a2e23; --mer-bg:#33290f; --jeu-bg:#2a2139; --ven-bg:#371d25;
+  --c6A:#2bb3bd; --c6B:#4fd1cc; --c6C:#8fe0d2; --c5B:#e07aa1; --c5C:#f2a088;
+  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1d2421; --fg:#eef2ef; --muted:#a4afaa; --line:#2f3934;
+  --lun:#7fb0ec; --mar:#6fd09a; --mer:#f0be5a; --jeu:#b99bea; --ven:#f08aa3;
+  --lun-bg:#1c2a3b; --mar-bg:#1a2e23; --mer-bg:#33290f; --jeu-bg:#2a2139; --ven-bg:#371d25;
+  --c6A:#2bb3bd; --c6B:#4fd1cc; --c6C:#8fe0d2; --c5B:#e07aa1; --c5C:#f2a088;
+  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:1200px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance}
+.range{color:var(--muted);font-variant-numeric:tabular-nums}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:8px 14px}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:3px solid var(--lun);outline-offset:2px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filters span.lbl{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px}
+.chip{padding:5px 11px;border-radius:999px;font-size:.9rem;font-weight:700}
+.chip[aria-pressed="false"]{opacity:.35}
+.chip.cls{background:var(--cc);color:#fff;border-color:transparent}
+.chip.HG{background:var(--hg);color:var(--hg-fg);border-color:transparent}
+.chip.EMC{background:var(--emc);color:var(--emc-fg);border-color:transparent}
+.week{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.week{grid-template-columns:1fr}}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.dhead{background:var(--dbg);border-bottom:4px solid var(--dc);padding:10px 12px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.dname{font-family:var(--display);font-size:1.2rem;color:var(--dc);font-weight:700}
+.ddate{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fg)}
+.day.today{outline:3px solid var(--dc);outline-offset:-1px}
+.today .dname::after{content:" · aujourd'hui";font-family:var(--body);font-size:.8rem;font-weight:400}
+.list{display:grid;gap:8px;padding:10px}
+.empty{color:var(--muted);font-style:italic;padding:6px 2px}
+.s{border:1px solid var(--line);border-left:8px solid var(--cc);border-radius:8px;padding:8px 10px;display:grid;gap:4px;background:var(--surface)}
+.s.past{opacity:.5}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.time{font-weight:700;font-variant-numeric:tabular-nums;font-size:1.05rem}
+.cls{font-family:var(--display);font-weight:700;font-size:1.35rem;color:var(--cc);line-height:1}
+.badge{font-size:.8rem;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.04em}
+.badge.HG{background:var(--hg);color:var(--hg-fg)}
+.badge.EMC{background:var(--emc);color:var(--emc-fg)}
+.room{font-size:.95rem;color:var(--muted)}
+.room b{color:var(--fg);font-variant-numeric:tabular-nums}
+.eval{font-size:1.2rem;line-height:1}
+.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.holiday{grid-column:1/-1;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.legend{font-size:.85rem;color:var(--muted)}
+.lvl{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Ma semaine</h1>
+      <div class="range" id="range"></div>
+    </div>
+    <div class="nav">
+      <button id="prev" type="button">◀ Semaine précédente</button>
+      <button id="now" type="button">Cette semaine</button>
+      <button id="next" type="button">Semaine suivante ▶</button>
+    </div>
+  </header>
+  <div class="filters" id="filters"><span class="lbl">Afficher</span></div>
+  <div class="week" id="week"></div>
+  <div class="legend">Séances de 55 min · ☢️ = évaluation notée · liseré de couleur = classe (bleu-vert pour les 6ᵉ, rose-corail pour les 5ᵉ) · badge bleu = HG, badge jaune = EMC. Source : onglet « Jour par jour » du fichier « Calendrier Classes ».</div>
+</div>
+
+<script>
+const RAW=`04/09|10h00 HG01 6C 203
+07/09|10h00 HG01 5B 216 · 11h10 EMC01 6C 204 · 12h10 HG01 6B 204 · 14h00 HG01 5C 214 · 15h00 HG01 6A 214
+08/09|09h00 HG02 6A 203 · 10h00 HG02 5C 203 · 14h00 HG02 5B 220 · 15h00 EMC01 6B 220 · 16h00 HG02 6C 220
+09/09|10h00 EMC01 6A 214
+10/09|12h10 HG02 6B 204
+11/09|10h00 HG03 6C 203 · 12h10 EMC01 5C 203
+14/09|10h00 HG03 5B 216 · 12h10 HG03 6B 204 · 14h00 HG03 5C 214 · 15h00 HG03 6A 214
+15/09|09h00 HG04 6A 203 · 10h00 HG04 5C 203 · 14h00 HG04 5B 220 · 16h00 HG04 6C 220
+17/09|11h10 EMC01 5B 204 · 12h10 HG04 6B 204
+18/09|10h00 HG05 6C 203
+21/09|10h00 HG05 5B 216 · 11h10 EMC02 6C 204 ★ · 12h10 HG05 6B 204 · 14h00 HG05 5C 214 · 15h00 HG05 6A 214
+22/09|09h00 HG06 6A 203 · 10h00 HG06 5C 203 · 14h00 HG06 5B 220 · 15h00 EMC02 6B 220 ★ · 16h00 HG06 6C 220
+23/09|10h00 EMC02 6A 214 ★
+24/09|12h10 HG06 6B 204
+25/09|10h00 HG07 6C 203 · 12h10 EMC02 5C 203
+28/09|10h00 HG07 5B 216 ★ · 12h10 HG07 6B 204 · 14h00 HG07 5C 214 ★ · 15h00 HG07 6A 214
+29/09|09h00 HG08 6A 203 · 10h00 HG08 5C 203 · 14h00 HG08 5B 220 · 16h00 HG08 6C 220
+01/10|11h10 EMC02 5B 204 · 12h10 HG08 6B 204
+02/10|10h00 HG09 6C 203 ★
+05/10|10h00 HG09 5B 216 · 11h10 EMC03 6C 204 · 12h10 HG09 6B 204 ★ · 14h00 HG09 5C 214 · 15h00 HG09 6A 214 ★
+06/10|09h00 HG10 6A 203 · 10h00 HG10 5C 203 · 14h00 HG10 5B 220 · 15h00 EMC03 6B 220 · 16h00 HG10 6C 220
+07/10|10h00 EMC03 6A 214
+08/10|12h10 HG10 6B 204
+09/10|10h00 HG11 6C 203 · 12h10 EMC03 5C 203
+15/10|11h10 EMC03 5B 204 · 12h10 HG11 6B 204
+16/10|10h00 HG12 6C 203
+19/10|10h00 HG11 5B 216 · 11h10 EMC04 6C 204 · 12h10 HG12 6B 204 · 14h00 HG11 5C 214 · 15h00 HG11 6A 214
+20/10|09h00 HG12 6A 203 · 10h00 HG12 5C 203 · 14h00 HG12 5B 220 · 15h00 EMC04 6B 220 · 16h00 HG13 6C 220
+21/10|10h00 EMC04 6A 214
+22/10|12h10 HG13 6B 204
+23/10|10h00 HG14 6C 203 · 12h10 EMC04 5C 203
+03/11|09h00 HG13 6A 203 · 10h00 HG13 5C 203 · 14h00 HG13 5B 220 · 16h00 HG15 6C 220
+05/11|11h10 EMC04 5B 204 · 12h10 HG14 6B 204
+06/11|10h00 HG16 6C 203
+09/11|10h00 HG14 5B 216 ★ · 11h10 EMC05 6C 204 ★ · 12h10 HG15 6B 204 · 14h00 HG14 5C 214 ★ · 15h00 HG14 6A 214
+10/11|09h00 HG15 6A 203 · 10h00 HG15 5C 203 · 14h00 HG15 5B 220 · 15h00 EMC05 6B 220 ★ · 16h00 HG17 6C 220
+11/11|10h00 EMC05 6A 214 ★
+12/11|12h10 HG16 6B 204
+13/11|10h00 HG18 6C 203 · 12h10 EMC05 5C 203 ★
+16/11|10h00 HG16 5B 216 · 12h10 HG17 6B 204 · 14h00 HG16 5C 214 · 15h00 HG16 6A 214
+17/11|09h00 HG17 6A 203 · 10h00 HG17 5C 203 · 14h00 HG17 5B 220 · 16h00 HG19 6C 220 ★
+19/11|11h10 EMC05 5B 204 ★ · 12h10 HG18 6B 204
+20/11|10h00 HG20 6C 203
+23/11|10h00 HG18 5B 216 · 11h10 EMC06 6C 204 ★ · 12h10 HG19 6B 204 ★ · 14h00 HG18 5C 214 · 15h00 HG18 6A 214
+24/11|09h00 HG19 6A 203 ★ · 10h00 HG19 5C 203 · 14h00 HG19 5B 220 · 15h00 EMC06 6B 220 ★ · 16h00 HG21 6C 220
+25/11|10h00 EMC06 6A 214 ★
+26/11|12h10 HG20 6B 204
+27/11|10h00 HG22 6C 203 · 12h10 EMC06 5C 203
+30/11|10h00 HG20 5B 216 · 12h10 HG21 6B 204 · 14h00 HG20 5C 214 · 15h00 HG20 6A 214
+01/12|09h00 HG21 6A 203 · 10h00 HG21 5C 203 · 14h00 HG21 5B 220 · 16h00 HG23 6C 220
+03/12|11h10 EMC06 5B 204 · 12h10 HG22 6B 204
+04/12|10h00 HG24 6C 203
+09/12|10h00 EMC07 6A 214
+10/12|12h10 HG23 6B 204
+11/12|10h00 HG25 6C 203 · 12h10 EMC07 5C 203
+14/12|10h00 HG22 5B 216 ★ · 12h10 HG24 6B 204 · 14h00 HG22 5C 214 ★ · 15h00 HG22 6A 214
+15/12|09h00 HG23 6A 203 · 10h00 HG23 5C 203 · 14h00 HG23 5B 220 · 16h00 HG26 6C 220
+17/12|11h10 EMC07 5B 204 · 12h10 HG25 6B 204
+18/12|10h00 HG27 6C 203
+07/01|12h10 HG26 6B 204
+08/01|10h00 HG28 6C 203 ★ · 12h10 EMC08 5C 203
+11/01|10h00 HG24 5B 216 · 12h10 HG27 6B 204 · 14h00 HG24 5C 214 · 15h00 HG24 6A 214
+12/01|09h00 HG25 6A 203 · 10h00 HG25 5C 203 · 14h00 HG25 5B 220 · 16h00 HG29 6C 220
+14/01|11h10 EMC08 5B 204 · 12h10 HG28 6B 204 ★
+15/01|10h00 HG30 6C 203
+18/01|10h00 HG26 5B 216 · 11h10 EMC07 6C 204 · 12h10 HG29 6B 204 · 14h00 HG26 5C 214 · 15h00 HG26 6A 214
+19/01|09h00 HG27 6A 203 · 10h00 HG27 5C 203 · 14h00 HG27 5B 220 · 15h00 EMC07 6B 220 · 16h00 HG31 6C 220
+20/01|10h00 EMC08 6A 214 ★
+21/01|12h10 HG30 6B 204
+22/01|10h00 HG32 6C 203 · 12h10 EMC09 5C 203 ★
+25/01|10h00 HG28 5B 216 · 12h10 HG31 6B 204 · 14h00 HG28 5C 214 · 15h00 HG28 6A 214 ★
+26/01|09h00 HG30 6A 203 · 10h00 HG29 5C 203 · 14h00 HG29 5B 220 · 16h00 HG33 6C 220
+28/01|11h10 EMC09 5B 204 ★ · 12h10 HG32 6B 204
+01/02|10h00 HG30 5B 216 ★ · 11h10 EMC08 6C 204 ★ · 12h10 HG33 6B 204 · 14h00 HG30 5C 214 ★ · 15h00 HG31 6A 214
+02/02|09h00 HG32 6A 203 · 10h00 HG32 5C 203 · 14h00 HG32 5B 220 · 15h00 EMC08 6B 220 ★ · 16h00 HG34 6C 220
+03/02|10h00 EMC09 6A 214
+04/02|12h10 HG34 6B 204
+05/02|10h00 HG35 6C 203 · 12h10 EMC10 5C 203
+08/02|10h00 HG33 5B 216 · 12h10 HG35 6B 204 · 14h00 HG33 5C 214 · 15h00 HG33 6A 214
+09/02|09h00 HG34 6A 203 · 10h00 HG34 5C 203 · 14h00 HG34 5B 220 · 16h00 HG36 6C 220
+11/02|11h10 EMC10 5B 204 · 12h10 HG36 6B 204
+12/02|10h00 HG37 6C 203 ★
+22/02|10h00 HG35 5B 216 · 11h10 EMC09 6C 204 · 12h10 HG37 6B 204 ★ · 14h00 HG35 5C 214 · 15h00 HG35 6A 214
+23/02|09h00 HG36 6A 203 · 10h00 HG36 5C 203 · 14h00 HG36 5B 220 · 15h00 EMC09 6B 220 · 16h00 HG38 6C 220
+24/02|10h00 EMC10 6A 214
+25/02|12h10 HG38 6B 204
+26/02|10h00 HG39 6C 203 · 12h10 EMC11 5C 203
+01/03|10h00 HG37 5B 216 ★ · 12h10 HG39 6B 204 · 14h00 HG37 5C 214 ★ · 15h00 HG37 6A 214 ★
+02/03|09h00 HG38 6A 203 · 10h00 HG38 5C 203 · 14h00 HG38 5B 220 · 16h00 HG40 6C 220
+04/03|11h10 EMC11 5B 204 · 12h10 HG40 6B 204
+08/03|10h00 HG39 5B 216 · 11h10 EMC10 6C 204 · 12h10 HG41 6B 204 · 14h00 HG39 5C 214 · 15h00 HG39 6A 214
+09/03|09h00 HG40 6A 203 · 10h00 HG40 5C 203 · 14h00 HG40 5B 220 · 15h00 EMC10 6B 220 · 16h00 HG41 6C 220
+10/03|10h00 EMC11 6A 214 ★
+11/03|12h10 HG42 6B 204
+12/03|10h00 HG42 6C 203 · 12h10 EMC12 5C 203
+15/03|10h00 HG41 5B 216 · 12h10 HG43 6B 204 · 14h00 HG41 5C 214 · 15h00 HG41 6A 214
+16/03|09h00 HG42 6A 203 · 10h00 HG42 5C 203 · 14h00 HG42 5B 220 · 16h00 HG43 6C 220
+18/03|11h10 EMC12 5B 204 · 12h10 HG44 6B 204
+19/03|10h00 HG44 6C 203
+05/04|10h00 HG43 5B 216 · 11h10 EMC11 6C 204 ★ · 12h10 HG45 6B 204 · 14h00 HG43 5C 214 · 15h00 HG43 6A 214
+06/04|09h00 HG44 6A 203 · 10h00 HG44 5C 203 ★ · 14h00 HG44 5B 220 ★ · 15h00 EMC11 6B 220 ★ · 16h00 HG45 6C 220
+07/04|10h00 EMC12 6A 214
+08/04|12h10 HG46 6B 204 ★
+09/04|10h00 HG46 6C 203 ★ · 12h10 EMC13 5C 203
+12/04|10h00 HG46 5B 216 · 12h10 HG47 6B 204 · 14h00 HG46 5C 214 · 15h00 HG45 6A 214
+13/04|09h00 HG46 6A 203 ★ · 10h00 HG47 5C 203 · 14h00 HG47 5B 220 · 16h00 HG47 6C 220
+15/04|11h10 EMC13 5B 204 · 12h10 HG48 6B 204
+16/04|10h00 HG48 6C 203
+19/04|10h00 HG48 5B 216 · 11h10 EMC12 6C 204 · 12h10 HG49 6B 204 · 14h00 HG48 5C 214 · 15h00 HG48 6A 214
+20/04|09h00 HG49 6A 203 · 10h00 HG49 5C 203 · 14h00 HG49 5B 220 · 15h00 EMC12 6B 220 · 16h00 HG49 6C 220
+21/04|10h00 EMC13 6A 214
+22/04|12h10 HG50 6B 204
+26/04|10h00 HG50 5B 216 · 12h10 HG51 6B 204 · 14h00 HG50 5C 214 · 15h00 HG50 6A 214
+27/04|09h00 HG51 6A 203 · 10h00 HG51 5C 203 ★ · 14h00 HG51 5B 220 ★ · 16h00 HG50 6C 220
+29/04|11h10 EMC14 5B 204 · 12h10 HG52 6B 204
+30/04|10h00 HG51 6C 203
+04/05|09h00 HG52 6A 203 · 10h00 HG52 5C 203 · 14h00 HG52 5B 220 · 15h00 EMC13 6B 220 · 16h00 HG52 6C 220
+05/05|10h00 EMC14 6A 214 ★
+06/05|12h10 HG53 6B 204
+07/05|10h00 HG53 6C 203 · 12h10 EMC14 5C 203
+10/05|10h00 HG53 5B 216 · 12h10 HG54 6B 204 · 14h00 HG53 5C 214 · 15h00 HG53 6A 214
+11/05|09h00 HG54 6A 203 · 10h00 HG54 5C 203 · 14h00 HG54 5B 220 · 16h00 HG54 6C 220
+13/05|11h10 EMC15 5B 204 · 12h10 HG55 6B 204 ★
+14/05|10h00 HG55 6C 203 ★
+17/05|10h00 HG55 5B 216 · 11h10 EMC13 6C 204 · 12h10 HG56 6B 204 · 14h00 HG55 5C 214 · 15h00 HG55 6A 214 ★
+18/05|09h00 HG57 6A 203 · 10h00 HG56 5C 203 · 14h00 HG56 5B 220 · 15h00 EMC14 6B 220 ★ · 16h00 HG56 6C 220
+19/05|10h00 EMC15 6A 214
+20/05|12h10 HG57 6B 204
+21/05|10h00 HG57 6C 203 · 12h10 EMC15 5C 203
+27/05|11h10 EMC16 5B 204 ★ · 12h10 HG58 6B 204
+28/05|10h00 HG58 6C 203
+31/05|10h00 HG57 5B 216 ★ · 11h10 EMC14 6C 204 ★ · 12h10 HG59 6B 204 · 14h00 HG57 5C 214 ★ · 15h00 HG58 6A 214
+01/06|09h00 HG59 6A 203 · 10h00 HG58 5C 203 · 14h00 HG58 5B 220 · 15h00 EMC15 6B 220 · 16h00 HG59 6C 220
+02/06|10h00 EMC16 6A 214
+03/06|12h10 HG60 6B 204
+04/06|10h00 HG60 6C 203 · 12h10 EMC16 5C 203 ★
+07/06|10h00 HG59 5B 216 · 12h10 HG61 6B 204 · 14h00 HG59 5C 214 · 15h00 HG60 6A 214
+08/06|09h00 HG61 6A 203 · 10h00 HG60 5C 203 · 14h00 HG60 5B 220 · 16h00 HG61 6C 220
+10/06|11h10 EMC17 5B 204 · 12h10 HG62 6B 204
+11/06|10h00 HG62 6C 203
+14/06|10h00 HG61 5B 216 · 11h10 EMC15 6C 204 · 12h10 HG63 6B 204 · 14h00 HG61 5C 214 · 15h00 HG62 6A 214
+15/06|09h00 HG63 6A 203 · 10h00 HG62 5C 203 · 14h00 HG62 5B 220 · 15h00 EMC16 6B 220 · 16h00 HG63 6C 220
+16/06|10h00 EMC17 6A 214
+17/06|12h10 HG64 6B 204 ★
+18/06|10h00 HG64 6C 203 ★ · 12h10 EMC18 5C 203
+21/06|10h00 HG63 5B 216 · 12h10 HG65 6B 204 · 14h00 HG63 5C 214 · 15h00 HG64 6A 214 ★
+22/06|09h00 HG65 6A 203 · 10h00 HG64 5C 203 · 14h00 HG64 5B 220 · 16h00 HG65 6C 220
+24/06|11h10 EMC18 5B 204 · 12h10 HG66 6B 204
+25/06|10h00 HG66 6C 203
+28/06|10h00 HG65 5B 216 · 11h10 EMC16 6C 204 · 12h10 HG67 6B 204 · 14h00 HG65 5C 214 · 15h00 HG66 6A 214
+29/06|09h00 HG67 6A 203 · 10h00 HG67 5C 203 · 14h00 HG67 5B 220 · 15h00 EMC17 6B 220 · 16h00 HG67 6C 220
+30/06|10h00 EMC18 6A 214`;
+
+const CLASSES=["6A","6B","6C","5B","5C"];
+const DAYS=[["Lundi","lun"],["Mardi","mar"],["Mercredi","mer"],["Jeudi","jeu"],["Vendredi","ven"]];
+const pad=n=>String(n).padStart(2,"0");
+const key=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const byDay={};
+RAW.split("\n").forEach(line=>{
+  const [dm,rest]=line.split("|"); const [dd,mm]=dm.split("/").map(Number);
+  const y=mm>=8?2026:2027; const k=y+"-"+pad(mm)+"-"+pad(dd);
+  byDay[k]=[...rest.matchAll(/(\d\d)h(\d\d) (HG|EMC)(\d\d) (\d[A-C]) (\d{3})( ★)?/g)].map(m=>{
+    const start=+m[1]*60+ +m[2], end=start+55;
+    return {h:+m[1],m:+m[2],start:m[1]+"h"+m[2],end:pad(Math.floor(end/60))+"h"+pad(end%60),mat:m[3],num:m[4],cls:m[5],room:m[6],ev:!!m[7]};
+  });
+});
+
+const state={on:new Set([...CLASSES,"HG","EMC"])};
+try{const s=JSON.parse(localStorage.getItem("filtres")||"null");if(Array.isArray(s))state.on=new Set(s)}catch(e){}
+
+const filters=document.getElementById("filters");
+[...CLASSES,"HG","EMC"].forEach(c=>{
+  const b=document.createElement("button");b.type="button";b.id="f-"+c;b.textContent=c;
+  b.className="chip "+(CLASSES.includes(c)?"cls":c);
+  if(CLASSES.includes(c))b.style.setProperty("--cc","var(--c"+c+")");
+  b.setAttribute("aria-pressed",state.on.has(c));
+  b.onclick=()=>{state.on.has(c)?state.on.delete(c):state.on.add(c);b.setAttribute("aria-pressed",state.on.has(c));
+    try{localStorage.setItem("filtres",JSON.stringify([...state.on]))}catch(e){};render()};
+  filters.appendChild(b);
+});
+
+function monday(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x}
+const today=new Date();
+let base=monday(today); if(today.getDay()===0||today.getDay()===6) base.setDate(base.getDate()+7);
+const home=new Date(base);
+
+function render(){
+  const week=document.getElementById("week");week.innerHTML="";
+  const end=new Date(base);end.setDate(end.getDate()+4);
+  document.getElementById("range").textContent="Du "+pad(base.getDate())+"/"+pad(base.getMonth()+1)+" au "+pad(end.getDate())+"/"+pad(end.getMonth()+1)+"/"+end.getFullYear();
+  const isHome=key(base)===key(home);
+  document.getElementById("title").textContent=isHome?"Ma semaine":"Semaine du "+pad(base.getDate())+"/"+pad(base.getMonth()+1);
+  let total=0;
+  DAYS.forEach(([name,c],i)=>{
+    const d=new Date(base);d.setDate(d.getDate()+i);const list=byDay[key(d)]||[];total+=list.length;
+    const col=document.createElement("section");col.className="day"+(key(d)===key(today)?" today":"");
+    col.style.setProperty("--dc","var(--"+c+")");col.style.setProperty("--dbg","var(--"+c+"-bg)");
+    col.innerHTML=`<div class="dhead"><span class="dname">${name}</span><span class="ddate">${pad(d.getDate())}/${pad(d.getMonth()+1)}</span></div>`;
+    const ul=document.createElement("div");ul.className="list";
+    const shown=list.filter(s=>state.on.has(s.cls)&&state.on.has(s.mat));
+    if(!shown.length) ul.innerHTML=`<div class="empty">${list.length?"Rien avec ces filtres":"Pas de cours"}</div>`;
+    shown.forEach(s=>{
+      const past=new Date(d.getFullYear(),d.getMonth(),d.getDate(),s.h,s.m+55)<today;
+      const el=document.createElement("div");el.className="s"+(past?" past":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
+      el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${s.room}</b></span></div>
+        <div class="row"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
+      ul.appendChild(el);
+    });
+    col.appendChild(ul);week.appendChild(col);
+  });
+  if(!total){const h=document.createElement("div");h.className="holiday";h.textContent="Aucune séance cette semaine (vacances ou hors année scolaire).";week.prepend(h)}
+}
+document.getElementById("prev").onclick=()=>{base.setDate(base.getDate()-7);render()};
+document.getElementById("next").onclick=()=>{base.setDate(base.getDate()+7);render()};
+document.getElementById("now").onclick=()=>{base=new Date(home);render()};
+render();
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+</script>
+</body>
+</html>
