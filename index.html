@@ -75,12 +75,33 @@ button:focus-visible{outline:3px solid var(--lun);outline-offset:2px}
 .holiday{grid-column:1/-1;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
 .legend{font-size:.85rem;color:var(--muted)}
 .lvl{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.view-cls{display:grid;gap:14px}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:6px solid var(--cc);padding-bottom:10px}
+.cname{font-family:var(--display);font-size:clamp(2.4rem,9vw,3.4rem);font-weight:700;color:var(--cc);line-height:1}
+.csub{color:var(--muted)}
+.clist{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.cs{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--dc);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.cs .dlabel{font-weight:700;color:var(--dc);font-size:1.05rem}
+.cs .dlabel b{color:var(--fg);font-variant-numeric:tabular-nums}
+.cs.next{outline:3px solid var(--cc);outline-offset:-1px}
+.cs .tag{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--cc);font-weight:700}
+.dots{display:flex;justify-content:center;gap:8px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);border:0;padding:0}
+.dot.on{background:var(--dc,var(--fg));transform:scale(1.4)}
+.swipe-hint{text-align:center;color:var(--muted);font-size:.85rem}
+.slide-l{animation:sl .22s ease-out}.slide-r{animation:sr .22s ease-out}
+@keyframes sl{from{transform:translateX(40px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes sr{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.slide-l,.slide-r{animation:none}}
+body{touch-action:pan-y}
 </style>
 </head>
 <body>
 
 
 <div class="wrap">
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <div id="mainView" class="view-main" style="display:grid;gap:16px">
   <header>
     <div>
       <h1 id="title">Ma semaine</h1>
@@ -94,6 +115,9 @@ button:focus-visible{outline:3px solid var(--lun);outline-offset:2px}
   </header>
   <div class="week" id="week"></div>
   <div class="legend">Séances de 55 min · ☢️ = évaluation notée · liseré de couleur = classe (bleu-vert pour les 6ᵉ, rose-corail pour les 5ᵉ) · badge bleu = HG, badge jaune = EMC. Source : onglet « Jour par jour » du fichier « Calendrier Classes ».</div>
+  </div>
+  <section id="clsView" class="view-cls" hidden></section>
+  <div class="swipe-hint">Glisse vers la gauche ou la droite pour voir les prochaines séances de chaque classe</div>
 </div>
 
 <script>
@@ -300,6 +324,49 @@ document.getElementById("prev").onclick=()=>{base.setDate(base.getDate()-7);rend
 document.getElementById("next").onclick=()=>{base.setDate(base.getDate()+7);render()};
 document.getElementById("now").onclick=()=>{base=new Date(home);render()};
 render();
+/* ---- Vues par classe (geste gauche / droite) ---- */
+const ALL=[];
+Object.keys(byDay).sort().forEach(k=>{const [y,mo,da]=k.split("-").map(Number);
+  byDay[k].forEach(s=>ALL.push({...s,date:new Date(y,mo-1,da,s.h,s.m)}))});
+const DNAMES=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const DCOL=["","lun","mar","mer","jeu","ven",""];
+const N_NEXT=8;
+let view=-1;
+const mainView=document.getElementById("mainView"),clsView=document.getElementById("clsView"),dotsEl=document.getElementById("dots");
+function drawDots(){dotsEl.innerHTML="";for(let i=-1;i<CLASSES.length;i++){const d=document.createElement("span");d.className="dot"+(i===view?" on":"");
+  if(i>=0)d.style.setProperty("--dc","var(--c"+CLASSES[i]+")");dotsEl.appendChild(d)}}
+function renderCls(){
+  const c=CLASSES[view];const now=new Date();
+  const next=ALL.filter(s=>s.cls===c&&new Date(s.date.getTime()+55*60000)>now).slice(0,N_NEXT);
+  clsView.style.setProperty("--cc","var(--c"+c+")");
+  clsView.innerHTML=`<div class="chead"><span class="cname">${c}</span><span class="csub">Prochaines séances</span></div>`;
+  const list=document.createElement("div");list.className="clist";
+  if(!next.length)list.innerHTML='<div class="empty">Plus aucune séance prévue.</div>';
+  next.forEach((s,i)=>{const d=s.date,wd=d.getDay();const el=document.createElement("div");
+    el.className="cs"+(i===0?" next":"");el.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
+    el.innerHTML=`${i===0?'<span class="tag">Prochaine séance</span>':""}
+      <div class="row"><span class="dlabel">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${s.room}</b></span></div>
+      <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
+    list.appendChild(el)});
+  clsView.appendChild(list);
+}
+function show(dir){
+  mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;
+  if(view>=0)renderCls();
+  const t=view<0?mainView:clsView;t.classList.remove("slide-l","slide-r");void t.offsetWidth;if(dir)t.classList.add(dir>0?"slide-l":"slide-r");
+  drawDots();window.scrollTo(0,0);
+}
+function step(dir){ // dir=+1 : geste vers la gauche ; -1 : vers la droite
+  if(dir>0)view=view+1>=CLASSES.length?-1:view+1;
+  else view=view<0?CLASSES.length-1:view-1;
+  show(dir);
+}
+let tx=null,ty=null;
+document.addEventListener("touchstart",e=>{if(e.touches.length!==1){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+document.addEventListener("touchend",e=>{if(tx===null)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;tx=null;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)step(dx<0?1:-1)},{passive:true});
+document.addEventListener("keydown",e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1)});
+drawDots();
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
 </script>
 </body>
