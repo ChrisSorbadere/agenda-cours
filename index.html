@@ -94,6 +94,28 @@ button:focus-visible{outline:3px solid var(--lun);outline-offset:2px}
 @keyframes sr{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.slide-l,.slide-r{animation:none}}
 body{touch-action:pan-y}
+[hidden]{display:none!important}
+html,body{overscroll-behavior-y:none}
+.s,.cs{cursor:pointer;transition:transform .1s}
+.s:active,.cs:active{transform:scale(.98)}
+.s:focus-visible,.cs:focus-visible{outline:3px solid var(--cc);outline-offset:2px}
+.detail{display:grid;gap:16px}
+.dtop{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:6px solid var(--cc);padding-bottom:12px}
+.back{font-size:1.6rem;line-height:1;padding:6px 14px}
+.dcls{font-family:var(--display);font-size:clamp(2.2rem,8vw,3rem);font-weight:700;color:var(--cc);line-height:1}
+.dtop .badge{font-size:1rem;padding:4px 10px}
+.dtop .eval{font-size:1.6rem}
+.dmeta{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:1.05rem}
+.dmeta b{font-variant-numeric:tabular-nums}
+.dmeta .dday{color:var(--dc);font-weight:700}
+.disc{font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.dtitle{font-family:var(--display);font-size:clamp(1.4rem,5vw,1.9rem);line-height:1.2;margin:0;text-wrap:balance;max-width:40ch}
+.dparts{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-width:65ch}
+.dparts li{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:1.05rem}
+.dparts li.cahier{border-left:6px solid var(--emc)}
+.dparts li.note{border-left:6px solid var(--eval)}
+.intbox{border:2px dashed var(--eval);border-radius:10px;padding:10px 12px;max-width:65ch}
+.intbox b{color:var(--eval)}
 </style>
 </head>
 <body>
@@ -117,9 +139,11 @@ body{touch-action:pan-y}
   <div class="legend">Séances de 55 min · ☢️ = évaluation notée · liseré de couleur = classe (bleu-vert pour les 6ᵉ, rose-corail pour les 5ᵉ) · badge bleu = HG, badge jaune = EMC. Source : onglet « Jour par jour » du fichier « Calendrier Classes ».</div>
   </div>
   <section id="clsView" class="view-cls" hidden></section>
+  <section id="detail" class="detail" hidden></section>
   <div class="swipe-hint">Glisse vers la gauche ou la droite pour voir les prochaines séances de chaque classe</div>
 </div>
 
+<script src="contenus.js"></script>
 <script>
 const RAW=`04/09|10h00 HG01 6C 203
 07/09|10h00 HG01 5B 216 · 11h10 EMC01 6C 204 · 12h10 HG01 6B 204 · 14h00 HG01 5C 214 · 15h00 HG01 6A 214
@@ -314,7 +338,7 @@ function render(){
       const el=document.createElement("div");el.className="s"+(past?" past":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
       el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${s.room}</b></span></div>
         <div class="row"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
-      ul.appendChild(el);
+      clickable(el,s,d);ul.appendChild(el);
     });
     col.appendChild(ul);week.appendChild(col);
   });
@@ -347,7 +371,7 @@ function renderCls(){
     el.innerHTML=`${i===0?'<span class="tag">Prochaine séance</span>':""}
       <div class="row"><span class="dlabel">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${s.room}</b></span></div>
       <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
-    list.appendChild(el)});
+    clickable(el,s,s.date);list.appendChild(el)});
   clsView.appendChild(list);
 }
 function show(dir){
@@ -356,7 +380,8 @@ function show(dir){
   const t=view<0?mainView:clsView;t.classList.remove("slide-l","slide-r");void t.offsetWidth;if(dir)t.classList.add(dir>0?"slide-l":"slide-r");
   drawDots();window.scrollTo(0,0);
 }
-function step(dir){ // dir=+1 : geste vers la gauche ; -1 : vers la droite
+function step(dir){
+  if(inDetail)return; // dir=+1 : geste vers la gauche ; -1 : vers la droite
   if(dir>0)view=view+1>=CLASSES.length?-1:view+1;
   else view=view<0?CLASSES.length-1:view-1;
   show(dir);
@@ -365,8 +390,37 @@ let tx=null,ty=null;
 document.addEventListener("touchstart",e=>{if(e.touches.length!==1){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
 document.addEventListener("touchend",e=>{if(tx===null)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;tx=null;
   if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)step(dx<0?1:-1)},{passive:true});
-document.addEventListener("keydown",e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&inDetail){history.back();return}if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1)});
 drawDots();
+/* ---- Fiche séance ---- */
+const detailEl=document.getElementById("detail");const hintEl=document.querySelector(".swipe-hint");
+let inDetail=false,lastFocus=null;
+const esc=t=>t.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function clickable(el,s,d){el.tabIndex=0;el.setAttribute("role","button");
+  el.setAttribute("aria-label","Voir le contenu de "+s.mat+" "+s.num+", "+s.cls);
+  const go=()=>{lastFocus=el;openDetail(s,d)};el.addEventListener("click",go);
+  el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}})}
+function openDetail(s,d){
+  const c=contenu(s);let t=c.texte.trim(),disc=s.mat==="EMC"?"Enseignement moral et civique":"Histoire-géographie";
+  const m=t.match(/^\((G|H)\)\s*/);if(m){disc=m[1]==="G"?"Géographie":"Histoire";t=t.slice(m[0].length)}
+  const parts=t.split(/\s+—\s+/);const title=parts.shift();
+  const wd=d.getDay();
+  detailEl.style.setProperty("--cc","var(--c"+s.cls+")");detailEl.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
+  detailEl.innerHTML=`<div class="dtop"><button type="button" class="back" id="back" aria-label="Retour">←</button>
+      <span class="dcls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</div>
+    <div class="dmeta"><span class="dday">${DNAMES[wd]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</span><span><b>${s.start} – ${s.end}</b></span><span>Salle <b>${s.room}</b></span></div>
+    <div><div class="disc">${disc}</div><h2 class="dtitle">${esc(title)}</h2></div>
+    ${parts.length?'<ul class="dparts">'+parts.map(p=>`<li class="${/^Cahier|^fiche/i.test(p)?"cahier":/not[ée]|ÉVALUATION|évaluation/.test(p)?"note":""}">${esc(p)}</li>`).join("")+"</ul>":""}
+    ${c.int?`<div class="intbox"><b>Interrogation de 5 min /10</b> en début d’heure (filet de note du T${c.int}, avant le conseil ; remplace le rituel des 3 questions ce jour-là).</div>`:""}`;
+  document.getElementById("back").onclick=()=>history.back();
+  if(!inDetail){history.pushState({detail:1},"");inDetail=true}
+  mainView.style.display="none";clsView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
+  window.scrollTo(0,0);document.getElementById("back").focus({preventScroll:true});
+}
+function closeDetail(){if(!inDetail)return;inDetail=false;detailEl.hidden=true;dotsEl.style.visibility="";hintEl.hidden=false;
+  mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;if(lastFocus)lastFocus.focus({preventScroll:true})}
+window.addEventListener("popstate",closeDetail);
+
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
 </script>
 </body>
