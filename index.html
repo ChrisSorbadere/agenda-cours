@@ -314,9 +314,10 @@ RAW.split("\n").forEach(line=>{
 
 
 function monday(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x}
-const today=new Date();
-let base=monday(today); if(today.getDay()===0||today.getDay()===6) base.setDate(base.getDate()+7);
-const home=new Date(base);
+let today=new Date();
+function homeWeek(t){const b=monday(t);if(t.getDay()===0||t.getDay()===6)b.setDate(b.getDate()+7);return b}
+let base=homeWeek(today);
+let home=new Date(base);
 
 function render(){
   const week=document.getElementById("week");week.innerHTML="";
@@ -326,7 +327,9 @@ function render(){
   document.getElementById("title").textContent=isHome?"Ma semaine":"Semaine du "+pad(base.getDate())+"/"+pad(base.getMonth()+1);
   let total=0;
   DAYS.forEach(([name,c],i)=>{
-    const d=new Date(base);d.setDate(d.getDate()+i);const list=byDay[key(d)]||[];total+=list.length;
+    const d=new Date(base);d.setDate(d.getDate()+i);
+    if(isHome&&key(d)<key(today))return; /* jours déjà passés : masqués dans la semaine en cours */
+    const list=byDay[key(d)]||[];total+=list.length;
     const col=document.createElement("section");col.className="day"+(key(d)===key(today)?" today":"");
     col.style.setProperty("--dc","var(--"+c+")");col.style.setProperty("--dbg","var(--"+c+"-bg)");
     col.innerHTML=`<div class="dhead"><span class="dname">${name}</span><span class="ddate">${pad(d.getDate())}/${pad(d.getMonth()+1)}</span></div>`;
@@ -421,6 +424,15 @@ function closeDetail(){if(!inDetail)return;inDetail=false;detailEl.hidden=true;d
   mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;if(lastFocus)lastFocus.focus({preventScroll:true})}
 window.addEventListener("popstate",closeDetail);
 
+/* ---- Actualisation automatique (changement d'heure ou de jour) ---- */
+function refreshNow(){
+  const wasHome=key(base)===key(home);today=new Date();home=homeWeek(today);
+  if(wasHome)base=new Date(home);
+  render();if(view>=0&&!inDetail)renderCls();
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshNow()});
+window.addEventListener("focus",refreshNow);window.addEventListener("pageshow",refreshNow);
+setInterval(refreshNow,60000);
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
 </script>
 </body>
