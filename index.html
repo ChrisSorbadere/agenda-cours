@@ -116,6 +116,20 @@ html,body{overscroll-behavior-y:none}
 .dparts li.note{border-left:6px solid var(--eval)}
 .intbox{border:2px dashed var(--eval);border-radius:10px;padding:10px 12px;max-width:65ch}
 .intbox b{color:var(--eval)}
+.evtxt{font-size:.8rem;font-weight:700;color:var(--eval);margin-left:3px;vertical-align:middle}
+.set{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;max-width:640px}
+.set h3{margin:0;font-family:var(--display);font-size:1.15rem}
+.hint{margin:0;color:var(--muted);font-size:.95rem}
+.steps{padding-left:1.2em;display:grid;gap:4px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-block;font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:10px 14px;font-weight:700}
+.btn.primary{background:var(--lun);color:var(--surface);border-color:transparent}
+.msg{margin:0;font-weight:700}.msg.ok{color:var(--mar)}.msg.err{color:var(--eval)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fields label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
+.fields input{min-width:0;width:100%;box-sizing:border-box;font:inherit;font-size:1.1rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+.quick{display:flex;gap:6px;flex-wrap:wrap}
+.quick button{font-size:1.2rem;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -133,10 +147,11 @@ html,body{overscroll-behavior-y:none}
       <button id="prev" type="button" title="Semaine précédente" aria-label="Semaine précédente">⏪</button>
       <button id="now" type="button" title="Cette semaine" aria-label="Cette semaine">⏺️</button>
       <button id="next" type="button" title="Semaine suivante" aria-label="Semaine suivante">⏩</button>
+      <button id="gear" type="button" title="Paramètres" aria-label="Paramètres">⚙️</button>
     </div>
   </header>
   <div class="week" id="week"></div>
-  <div class="legend">Séances de 55 min · ☢️ = évaluation notée · liseré de couleur = classe (bleu-vert pour les 6ᵉ, rose-corail pour les 5ᵉ) · badge bleu = HG, badge jaune = EMC. Source : onglet « Jour par jour » du fichier « Calendrier Classes ».</div>
+  <div class="legend" id="legend"></div>
   </div>
   <section id="clsView" class="view-cls" hidden></section>
   <section id="detail" class="detail" hidden></section>
@@ -301,16 +316,40 @@ const RAW=`04/09|10h00 HG01 6C 203
 const CLASSES=["6A","6B","6C","5B","5C"];
 const DAYS=[["Lundi","lun"],["Mardi","mar"],["Mercredi","mer"],["Jeudi","jeu"],["Vendredi","ven"]];
 const pad=n=>String(n).padStart(2,"0");
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const key=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
-const byDay={};
-RAW.split("\n").forEach(line=>{
-  const [dm,rest]=line.split("|"); const [dd,mm]=dm.split("/").map(Number);
-  const y=mm>=8?2026:2027; const k=y+"-"+pad(mm)+"-"+pad(dd);
-  byDay[k]=[...rest.matchAll(/(\d\d)h(\d\d) (HG|EMC)(\d\d) (\d[A-C]) (\d{3})( ★)?/g)].map(m=>{
-    const start=+m[1]*60+ +m[2], end=start+55;
-    return {h:+m[1],m:+m[2],start:m[1]+"h"+m[2],end:pad(Math.floor(end/60))+"h"+pad(end%60),mat:m[3],num:m[4],cls:m[5],room:m[6],ev:!!m[7]};
+const hm=min=>pad(Math.floor(min/60))+"h"+pad(min%60);
+function builtin(){const out=[];
+  RAW.split("\n").forEach(line=>{
+    const [dm,rest]=line.split("|"); const [dd,mm]=dm.split("/").map(Number);
+    const y=mm>=8?2026:2027; const k=y+"-"+pad(mm)+"-"+pad(dd);
+    [...rest.matchAll(/(\d\d)h(\d\d) (HG|EMC)(\d\d) (\d[A-C]) (\d{3})( ★)?/g)].forEach(m=>{
+      const st=+m[1]*60+ +m[2];
+      out.push({k,h:+m[1],m:+m[2],start:hm(st),end:hm(st+55),mat:m[3],num:m[4],cls:m[5],room:m[6],ev:!!m[7],int:!!INT[m[5]+"-"+m[3]+m[4]]});
+    });
   });
-});
+  return out;
+}
+let byDay={},ALL=[],SOURCE=null;
+function setData(list){
+  byDay={};ALL=[];
+  list.forEach(s=>{(byDay[s.k]=byDay[s.k]||[]).push(s)});
+  Object.keys(byDay).forEach(k=>byDay[k].sort((a,b)=>a.h*60+a.m-(b.h*60+b.m)));
+  Object.keys(byDay).sort().forEach(k=>{const [y,mo,da]=k.split("-").map(Number);
+    byDay[k].forEach(s=>{s.date=new Date(y,mo-1,da,s.h,s.m);ALL.push(s)})});
+}
+/* Réglages et données importées, conservés sur cet appareil */
+const DEF={evSym:"☢️",evTxt:"",intSym:"",intTxt:""};
+let CFG={...DEF};
+try{Object.assign(CFG,JSON.parse(localStorage.getItem("reglages")||"{}"))}catch(e){}
+function saveCfg(){try{localStorage.setItem("reglages",JSON.stringify(CFG))}catch(e){}}
+(function(){let ok=false;
+  try{const st=JSON.parse(localStorage.getItem("donnees")||"null");if(st&&Array.isArray(st.list)&&st.list.length){setData(st.list);SOURCE=st.meta;ok=true}}catch(e){}
+  if(!ok)setData(builtin());})();
+function mark(s){let o="";
+  if(s.ev&&(CFG.evSym||CFG.evTxt))o+=`<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">${esc(CFG.evSym)}${CFG.evTxt?'<span class="evtxt">'+esc(CFG.evTxt)+'</span>':""}</span>`;
+  if(s.int&&(CFG.intSym||CFG.intTxt))o+=`<span class="eval" title="Interrogation de 5 min" aria-label="Interrogation de 5 min">${esc(CFG.intSym)}${CFG.intTxt?'<span class="evtxt">'+esc(CFG.intTxt)+'</span>':""}</span>`;
+  return o}
 
 
 function monday(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x}
@@ -319,7 +358,14 @@ function homeWeek(t){const b=monday(t);if(t.getDay()===0||t.getDay()===6)b.setDa
 let base=homeWeek(today);
 let home=new Date(base);
 
+function legend(){
+  const ev=(CFG.evSym||CFG.evTxt)?esc(CFG.evSym+(CFG.evTxt?" "+CFG.evTxt:""))+" = évaluation notée · ":"";
+  const it=(CFG.intSym||CFG.intTxt)?esc(CFG.intSym+(CFG.intTxt?" "+CFG.intTxt:""))+" = interrogation de 5 min · ":"";
+  document.getElementById("legend").innerHTML="Séances de 55 min · "+ev+it+"liseré = classe · badge bleu = HG, badge jaune = EMC · Données : "+
+    (SOURCE?"fichier « "+esc(SOURCE.name)+" » importé le "+esc(SOURCE.when):"version intégrée à l’application")+".";
+}
 function render(){
+  legend();
   const week=document.getElementById("week");week.innerHTML="";
   const end=new Date(base);end.setDate(end.getDate()+4);
   document.getElementById("range").textContent="Du "+pad(base.getDate())+"/"+pad(base.getMonth()+1)+" au "+pad(end.getDate())+"/"+pad(end.getMonth()+1)+"/"+end.getFullYear();
@@ -339,8 +385,8 @@ function render(){
     shown.forEach(s=>{
       const past=new Date(d.getFullYear(),d.getMonth(),d.getDate(),s.h,s.m+55)<today;
       const el=document.createElement("div");el.className="s"+(past?" past":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
-      el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${s.room}</b></span></div>
-        <div class="row"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
+      el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${esc(s.room)}</b></span></div>
+        <div class="row"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>`;
       clickable(el,s,d);ul.appendChild(el);
     });
     col.appendChild(ul);week.appendChild(col);
@@ -352,9 +398,6 @@ document.getElementById("next").onclick=()=>{base.setDate(base.getDate()+7);rend
 document.getElementById("now").onclick=()=>{base=new Date(home);render()};
 render();
 /* ---- Vues par classe (geste gauche / droite) ---- */
-const ALL=[];
-Object.keys(byDay).sort().forEach(k=>{const [y,mo,da]=k.split("-").map(Number);
-  byDay[k].forEach(s=>ALL.push({...s,date:new Date(y,mo-1,da,s.h,s.m)}))});
 const DNAMES=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 const DCOL=["","lun","mar","mer","jeu","ven",""];
 const N_NEXT=8;
@@ -373,7 +416,7 @@ function renderCls(){
     el.className="cs"+(i===0?" next":"");el.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
     el.innerHTML=`${i===0?'<span class="tag">Prochaine séance</span>':""}
       <div class="row"><span class="dlabel">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${s.room}</b></span></div>
-      <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</span></div>`;
+      <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>`;
     clickable(el,s,s.date);list.appendChild(el)});
   clsView.appendChild(list);
 }
@@ -398,19 +441,18 @@ drawDots();
 /* ---- Fiche séance ---- */
 const detailEl=document.getElementById("detail");const hintEl=document.querySelector(".swipe-hint");
 let inDetail=false,lastFocus=null;
-const esc=t=>t.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 function clickable(el,s,d){el.tabIndex=0;el.setAttribute("role","button");
   el.setAttribute("aria-label","Voir le contenu de "+s.mat+" "+s.num+", "+s.cls);
   const go=()=>{lastFocus=el;openDetail(s,d)};el.addEventListener("click",go);
   el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}})}
 function openDetail(s,d){
-  const c=contenu(s);let t=c.texte.trim(),disc=s.mat==="EMC"?"Enseignement moral et civique":"Histoire-géographie";
+  const c=s.txt!=null?{texte:s.txt||"Contenu non renseigné.",int:0}:contenu(s);let t=c.texte.trim(),disc=s.mat==="EMC"?"Enseignement moral et civique":"Histoire-géographie";
   const m=t.match(/^\((G|H)\)\s*/);if(m){disc=m[1]==="G"?"Géographie":"Histoire";t=t.slice(m[0].length)}
   const parts=t.split(/\s+—\s+/);const title=parts.shift();
   const wd=d.getDay();
   detailEl.style.setProperty("--cc","var(--c"+s.cls+")");detailEl.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
   detailEl.innerHTML=`<div class="dtop"><button type="button" class="back" id="back" aria-label="Retour">←</button>
-      <span class="dcls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${s.ev?'<span class="eval" title="Évaluation notée" aria-label="Évaluation notée">☢️</span>':""}</div>
+      <span class="dcls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</div>
     <div class="dmeta"><span class="dday">${DNAMES[wd]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</span><span><b>${s.start} – ${s.end}</b></span><span>Salle <b>${s.room}</b></span></div>
     <div><div class="disc">${disc}</div><h2 class="dtitle">${esc(title)}</h2></div>
     ${parts.length?'<ul class="dparts">'+parts.map(p=>`<li class="${/^Cahier|^fiche/i.test(p)?"cahier":/not[ée]|ÉVALUATION|évaluation/.test(p)?"note":""}">${esc(p)}</li>`).join("")+"</ul>":""}
@@ -420,9 +462,92 @@ function openDetail(s,d){
   mainView.style.display="none";clsView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
   window.scrollTo(0,0);document.getElementById("back").focus({preventScroll:true});
 }
-function closeDetail(){if(!inDetail)return;inDetail=false;detailEl.hidden=true;dotsEl.style.visibility="";hintEl.hidden=false;
+function closeDetail(){if(!inDetail)return;inDetail=false;render();detailEl.hidden=true;dotsEl.style.visibility="";hintEl.hidden=false;
   mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;if(lastFocus)lastFocus.focus({preventScroll:true})}
 window.addEventListener("popstate",closeDetail);
+
+/* ---- Paramètres ---- */
+function openSettings(){
+  detailEl.style.setProperty("--cc","var(--fg)");
+  const info=SOURCE?`Fichier « ${esc(SOURCE.name)} » importé le ${esc(SOURCE.when)} : ${SOURCE.n} séances, du ${esc(SOURCE.from)} au ${esc(SOURCE.to)}.`:"Version intégrée à l’application (412 séances, 2026-2027).";
+  detailEl.innerHTML=`<div class="dtop"><button type="button" class="back" id="back" aria-label="Retour">←</button><span class="dcls">Paramètres</span></div>
+  <section class="set"><h3>Fichier des séances</h3>
+    <p class="hint">${info}</p>
+    <ol class="hint steps"><li>Dans Drive, ouvre le nouveau fichier puis <i>Fichier → Télécharger → Microsoft Excel (.xlsx)</i>.</li>
+      <li>Touche « Importer un fichier » et choisis-le dans tes téléchargements.</li></ol>
+    <p class="hint">L’application lit l’onglet « Séances » (colonnes Date, Créneau, Séance, Classe, Salle, Éval., Contenu).</p>
+    <div class="btns"><label class="btn primary" for="file">Importer un fichier</label>
+      <input type="file" id="file" accept=".xlsx,.xls,.ods,.csv" hidden>
+      ${SOURCE?'<button type="button" class="btn" id="reset">Revenir à la version intégrée</button>':""}</div>
+    <p class="msg" id="msg" role="status"></p></section>
+  <section class="set"><h3>Évaluations notées (★ dans le fichier)</h3>
+    <div class="fields"><label>Symbole<input id="evSym" maxlength="8" value="${esc(CFG.evSym)}"></label>
+      <label>Texte (facultatif)<input id="evTxt" maxlength="24" value="${esc(CFG.evTxt)}" placeholder="ex. Éval"></label></div>
+    <div class="quick" data-target="evSym">${["☢️","⭐","🔴","📝","❗","🎯"].map(e=>`<button type="button">${e}</button>`).join("")}</div></section>
+  <section class="set"><h3>Interrogations de 5 min (INT)</h3>
+    <div class="fields"><label>Symbole<input id="intSym" maxlength="8" value="${esc(CFG.intSym)}" placeholder="aucun"></label>
+      <label>Texte (facultatif)<input id="intTxt" maxlength="24" value="${esc(CFG.intTxt)}" placeholder="ex. INT"></label></div>
+    <div class="quick" data-target="intSym">${["⏱️","✏️","🟡","❓"].map(e=>`<button type="button">${e}</button>`).join("")}<button type="button" data-v="">aucun</button></div></section>
+  <section class="set"><h3>Aperçu</h3><div class="s" id="prev-card" style="--cc:var(--c6A);cursor:default"></div></section>`;
+  const pv=()=>{document.getElementById("prev-card").innerHTML=`<div class="row"><span class="time">10h00 – 10h55</span><span class="room">Salle <b>214</b></span></div>
+    <div class="row"><span class="who"><span class="cls">6A</span><span class="badge HG">HG 19</span>${mark({ev:1})}</span><span class="who"><span class="badge EMC">EMC 05</span>${mark({int:1})}</span></div>`};
+  ["evSym","evTxt","intSym","intTxt"].forEach(id=>{const i=document.getElementById(id);i.addEventListener("input",()=>{CFG[id]=i.value.trim();saveCfg();pv()})});
+  detailEl.querySelectorAll(".quick").forEach(q=>q.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    const id=q.dataset.target,v=b.dataset.v!=null?b.dataset.v:b.textContent;document.getElementById(id).value=v;CFG[id]=v;saveCfg();pv()}));
+  document.getElementById("file").addEventListener("change",e=>{const f=e.target.files[0];if(f)importFile(f);e.target.value=""});
+  const r=document.getElementById("reset");if(r)r.onclick=()=>{try{localStorage.removeItem("donnees")}catch(e){}SOURCE=null;setData(builtin());openSettings();say("Version intégrée rétablie.",true)};
+  pv();
+  document.getElementById("back").onclick=()=>history.back();
+  if(!inDetail){history.pushState({detail:1},"");inDetail=true}
+  mainView.style.display="none";clsView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
+  window.scrollTo(0,0);
+}
+function say(t,ok){const m=document.getElementById("msg");if(m){m.textContent=t;m.className="msg "+(ok?"ok":"err")}}
+document.getElementById("gear").onclick=()=>{lastFocus=document.getElementById("gear");openSettings()};
+
+/* ---- Import du fichier (.xlsx) ---- */
+function loadXLSX(){return window.XLSX?Promise.resolve():new Promise((ok,ko)=>{const sc=document.createElement("script");sc.src="xlsx.full.min.js";sc.onload=ok;sc.onerror=()=>ko(new Error("Lecteur de fichiers indisponible (connexion ?)"));document.head.appendChild(sc)})}
+const norm=t=>String(t??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z]/g,"");
+function schoolYear(){const t=new Date();return t.getMonth()>=7?t.getFullYear():t.getFullYear()-1}
+function parseDate(v,y0){
+  if(typeof v==="number"&&v>20000){const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5);return d.getUTCFullYear()+"-"+pad(d.getUTCMonth()+1)+"-"+pad(d.getUTCDate())}
+  if(v instanceof Date)return v.getFullYear()+"-"+pad(v.getMonth()+1)+"-"+pad(v.getDate());
+  const m=String(v??"").match(/(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?/);if(!m)return null;
+  const dd=+m[1],mm=+m[2];let y=m[3]?+m[3]:(mm>=8?y0:y0+1);if(y<100)y+=2000;
+  if(mm<1||mm>12||dd<1||dd>31)return null;return y+"-"+pad(mm)+"-"+pad(dd)}
+function parseRows(rows){
+  const y0=schoolYear();let hi=-1,col={};
+  for(let i=0;i<Math.min(rows.length,30);i++){const r=(rows[i]||[]).map(norm);
+    if(r.includes("date")&&r.includes("classe")&&r.some(c=>c.startsWith("seance"))){hi=i;
+      r.forEach((c,j)=>{if(c==="date")col.date=j;else if(c.startsWith("creneau"))col.cr=j;else if(c==="seance")col.se=j;else if(c==="classe")col.cl=j;
+        else if(c==="salle")col.sa=j;else if(c.startsWith("eval"))col.ev=j;else if(c==="contenu")col.co=j});break}}
+  if(hi<0||col.date==null||col.se==null||col.cl==null||col.cr==null)throw new Error("Onglet « Séances » introuvable ou colonnes manquantes (Date, Créneau, Séance, Classe).");
+  const out=[];let skipped=0;
+  for(let i=hi+1;i<rows.length;i++){const r=rows[i]||[];if(!r.length||r.every(c=>c==null||c===""))continue;
+    const k=parseDate(r[col.date],y0),se=String(r[col.se]??"").match(/^\s*(HG|EMC)\s*0*(\d+)/i),cr=String(r[col.cr]??"").match(/(\d{1,2})\s*[hH:]\s*(\d{2})(?:\s*[-–à]+\s*(\d{1,2})\s*[hH:]\s*(\d{2}))?/),cl=String(r[col.cl]??"").trim().toUpperCase();
+    if(!k||!se||!cr||!cl){skipped++;continue}
+    const st=+cr[1]*60+ +cr[2],en=cr[3]?+cr[3]*60+ +cr[4]:st+55,ev=String(col.ev!=null?r[col.ev]??"":"");
+    out.push({k,h:+cr[1],m:+cr[2],start:hm(st),end:hm(en),mat:se[1].toUpperCase(),num:pad(+se[2]),cls:cl,room:String(col.sa!=null?r[col.sa]??"":"").trim()||"?",
+      ev:/★|\*/.test(ev),int:/INT/i.test(ev),txt:col.co!=null?String(r[col.co]??"").trim():""});}
+  return {out,skipped};
+}
+async function importFile(f){
+  say("Lecture du fichier…",true);
+  try{await loadXLSX();
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+    const names=wb.SheetNames;const pick=names.find(n=>norm(n)==="seances");
+    const order=pick?[pick,...names.filter(n=>n!==pick)]:names;let res=null,err=null;
+    for(const n of order){try{res=parseRows(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}));if(res.out.length)break}catch(e){err=e;res=null}}
+    if(!res||!res.out.length)throw err||new Error("Aucune séance trouvée dans ce fichier.");
+    const list=res.out.sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:a.h*60+a.m-(b.h*60+b.m));
+    const fd=k=>k.split("-").reverse().join("/");const now=new Date();
+    const meta={name:f.name,when:pad(now.getDate())+"/"+pad(now.getMonth()+1)+"/"+now.getFullYear()+" à "+pad(now.getHours())+"h"+pad(now.getMinutes()),
+      n:list.length,from:fd(list[0].k),to:fd(list[list.length-1].k)};
+    try{localStorage.setItem("donnees",JSON.stringify({meta,list}))}catch(e){throw new Error("Impossible d’enregistrer les données sur cet appareil.")}
+    SOURCE=meta;setData(list);openSettings();
+    say(`✔ ${list.length} séances importées (du ${meta.from} au ${meta.to})${res.skipped?" · "+res.skipped+" ligne(s) ignorée(s)":""}.`,true);
+  }catch(e){say("✘ "+e.message+" Les données actuelles sont conservées.",false)}
+}
 
 /* ---- Actualisation automatique (changement d'heure ou de jour) ---- */
 function refreshNow(){
