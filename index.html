@@ -130,6 +130,16 @@ html,body{overscroll-behavior-y:none}
 .fields input{min-width:0;width:100%;box-sizing:border-box;font:inherit;font-size:1.1rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
 .quick{display:flex;gap:6px;flex-wrap:wrap}
 .quick button{font-size:1.2rem;padding:6px 10px}
+.filt{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.filt label{display:grid;gap:4px;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;min-width:0}
+.filt .wide{grid-column:1/-1}
+.filt select,.filt input{font:inherit;font-size:1.05rem;text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0;width:100%;box-sizing:border-box}
+.filt .btn{grid-column:1/-1;justify-self:start}
+.count{margin:0;font-weight:700;color:var(--muted)}
+.cs.past{opacity:.55}
+.ctxt{font-size:.95rem;color:var(--muted);line-height:1.35}
+.dot.sq{border-radius:2px}
+.dot.sq.on{background:var(--lun)}
 </style>
 </head>
 <body>
@@ -153,9 +163,10 @@ html,body{overscroll-behavior-y:none}
   <div class="week" id="week"></div>
   <div class="legend" id="legend"></div>
   </div>
+  <section id="srchView" class="view-cls" hidden></section>
   <section id="clsView" class="view-cls" hidden></section>
   <section id="detail" class="detail" hidden></section>
-  <div class="swipe-hint">Glisse vers la gauche ou la droite pour voir les prochaines séances de chaque classe</div>
+  <div class="swipe-hint">Glisse vers la gauche pour la recherche puis chaque classe, vers la droite pour le tour inverse</div>
 </div>
 
 <script src="contenus.js"></script>
@@ -402,11 +413,15 @@ const DNAMES=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"]
 const DCOL=["","lun","mar","mer","jeu","ven",""];
 const N_NEXT=8;
 let view=-1;
-const mainView=document.getElementById("mainView"),clsView=document.getElementById("clsView"),dotsEl=document.getElementById("dots");
-function drawDots(){dotsEl.innerHTML="";for(let i=-1;i<CLASSES.length;i++){const d=document.createElement("span");d.className="dot"+(i===view?" on":"");
-  if(i>=0)d.style.setProperty("--dc","var(--c"+CLASSES[i]+")");dotsEl.appendChild(d)}}
+const PAGES=["?",...CLASSES]; /* ? = écran de recherche */
+const mainView=document.getElementById("mainView"),clsView=document.getElementById("clsView"),srchView=document.getElementById("srchView"),dotsEl=document.getElementById("dots");
+function drawDots(){dotsEl.innerHTML="";for(let i=-1;i<PAGES.length;i++){const d=document.createElement("span");d.className="dot"+(i===view?" on":"")+(PAGES[i]==="?"?" sq":"");
+  if(i>=0&&PAGES[i]!=="?")d.style.setProperty("--dc","var(--c"+PAGES[i]+")");dotsEl.appendChild(d)}}
+function showViews(){const sr=view>=0&&PAGES[view]==="?";
+  mainView.style.display=view<0?"grid":"none";srchView.hidden=!sr;clsView.hidden=view<0||sr}
+function renderPage(){if(view<0)return;if(PAGES[view]==="?")renderSearch();else renderCls()}
 function renderCls(){
-  const c=CLASSES[view];const now=new Date();
+  const c=PAGES[view];const now=new Date();
   const next=ALL.filter(s=>s.cls===c&&new Date(s.date.getTime()+55*60000)>now).slice(0,N_NEXT);
   clsView.style.setProperty("--cc","var(--c"+c+")");
   clsView.innerHTML=`<div class="chead"><span class="cname">${c}</span><span class="csub">Prochaines séances</span></div>`;
@@ -421,23 +436,74 @@ function renderCls(){
   clsView.appendChild(list);
 }
 function show(dir){
-  mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;
-  if(view>=0)renderCls();
-  const t=view<0?mainView:clsView;t.classList.remove("slide-l","slide-r");void t.offsetWidth;if(dir)t.classList.add(dir>0?"slide-l":"slide-r");
+  showViews();renderPage();
+  const t=view<0?mainView:PAGES[view]==="?"?srchView:clsView;t.classList.remove("slide-l","slide-r");void t.offsetWidth;if(dir)t.classList.add(dir>0?"slide-l":"slide-r");
   drawDots();window.scrollTo(0,0);
 }
 function step(dir){
   if(inDetail)return; // dir=+1 : geste vers la gauche ; -1 : vers la droite
-  if(dir>0)view=view+1>=CLASSES.length?-1:view+1;
-  else view=view<0?CLASSES.length-1:view-1;
+  if(dir>0)view=view+1>=PAGES.length?-1:view+1;
+  else view=view<0?PAGES.length-1:view-1;
   show(dir);
 }
 let tx=null,ty=null;
-document.addEventListener("touchstart",e=>{if(e.touches.length!==1){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+document.addEventListener("touchstart",e=>{if(e.touches.length!==1||e.target.closest("select,input,textarea")){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
 document.addEventListener("touchend",e=>{if(tx===null)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;tx=null;
   if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)step(dx<0?1:-1)},{passive:true});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&inDetail){history.back();return}if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1)});
 drawDots();
+/* ---- Recherche de séances ---- */
+const MOIS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+let F={cls:"",mat:"",ev:"",mois:"",quand:"avenir",q:""};
+try{Object.assign(F,JSON.parse(localStorage.getItem("recherche")||"{}"))}catch(e){}
+function texteDe(s){return s.txt!=null?s.txt:contenu(s).texte}
+function buildSearch(){
+  const months=[...new Set(ALL.map(s=>s.k.slice(0,7)))];
+  const opt=(v,l,cur)=>`<option value="${v}"${v===cur?" selected":""}>${l}</option>`;
+  srchView.style.setProperty("--cc","var(--lun)");
+  srchView.innerHTML=`<div class="chead"><span class="cname">Recherche</span><span class="csub">Séances</span></div>
+  <form class="filt" id="filt" onsubmit="return false">
+    <label>Classe<select id="f-cls">${opt("","Toutes",F.cls)}${CLASSES.map(c=>opt(c,c,F.cls)).join("")}</select></label>
+    <label>Matière<select id="f-mat">${opt("","HG et EMC",F.mat)}${opt("HG","HG",F.mat)}${opt("EMC","EMC",F.mat)}</select></label>
+    <label>Évaluation<select id="f-ev">${opt("","Toutes",F.ev)}${opt("ev","Évaluations notées",F.ev)}${opt("int","Interrogations (INT)",F.ev)}${opt("any","Éval. + interrogations",F.ev)}${opt("none","Sans évaluation",F.ev)}</select></label>
+    <label>Mois<select id="f-mois">${opt("","Tous",F.mois)}${months.map(m=>{const [y,mo]=m.split("-");return opt(m,MOIS[+mo-1]+" "+y,F.mois)}).join("")}</select></label>
+    <label>Période<select id="f-quand">${opt("avenir","À venir",F.quand)}${opt("passe","Passées",F.quand)}${opt("tout","Toute l’année",F.quand)}</select></label>
+    <label class="wide">Mot dans le contenu<input id="f-q" type="search" value="${esc(F.q)}" placeholder="ex. Rome, Cahier p. 32, débat…" enterkeyhint="search"></label>
+    <button type="button" class="btn" id="f-reset">Effacer les filtres</button>
+  </form>
+  <p class="count" id="f-count" role="status"></p>
+  <div class="clist" id="f-res"></div>`;
+  const upd=()=>{F={cls:val("f-cls"),mat:val("f-mat"),ev:val("f-ev"),mois:val("f-mois"),quand:val("f-quand"),q:val("f-q").trim()};
+    try{localStorage.setItem("recherche",JSON.stringify(F))}catch(e){}searchResults()};
+  ["f-cls","f-mat","f-ev","f-mois","f-quand"].forEach(id=>document.getElementById(id).addEventListener("change",upd));
+  document.getElementById("f-q").addEventListener("input",upd);
+  document.getElementById("f-reset").onclick=()=>{F={cls:"",mat:"",ev:"",mois:"",quand:"avenir",q:""};try{localStorage.removeItem("recherche")}catch(e){}buildSearch()};
+  srchView.dataset.built=ALL.length;searchResults();
+}
+const val=id=>document.getElementById(id).value;
+function searchResults(){
+  const now=new Date(),q=norm2(F.q);
+  const res=ALL.filter(s=>{const fin=new Date(s.date.getTime()+55*60000);
+    if(F.cls&&s.cls!==F.cls)return false;if(F.mat&&s.mat!==F.mat)return false;
+    if(F.ev==="ev"&&!s.ev)return false;if(F.ev==="int"&&!s.int)return false;if(F.ev==="any"&&!s.ev&&!s.int)return false;if(F.ev==="none"&&(s.ev||s.int))return false;
+    if(F.mois&&s.k.slice(0,7)!==F.mois)return false;
+    if(F.quand==="avenir"&&fin<now)return false;if(F.quand==="passe"&&fin>=now)return false;
+    if(q&&!norm2(texteDe(s)+" "+s.mat+s.num+" "+s.mat+" "+s.num).includes(q))return false;return true});
+  if(F.quand==="passe")res.reverse();
+  const box=document.getElementById("f-res");box.innerHTML="";
+  document.getElementById("f-count").textContent=res.length?res.length+" séance"+(res.length>1?"s":""):"Aucune séance ne correspond.";
+  res.slice(0,200).forEach(s=>{const d=s.date,wd=d.getDay();const el=document.createElement("div");
+    el.className="cs"+(new Date(d.getTime()+55*60000)<now?" past":"");el.style.setProperty("--dc","var(--c"+s.cls+")");el.style.setProperty("--cc","var(--c"+s.cls+")");
+    const t=texteDe(s).replace(/^\((G|H)\)\s*/,"").split(/\s+—\s+/)[0];
+    el.innerHTML=`<div class="row"><span class="dlabel" style="color:var(--${DCOL[wd]||"lun"})">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${esc(s.room)}</b></span></div>
+      <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="cls" style="font-size:1.15rem">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>
+      <div class="ctxt">${esc(t)}</div>`;
+    clickable(el,s,d);box.appendChild(el)});
+  if(res.length>200){const m=document.createElement("div");m.className="empty";m.textContent="200 premières séances affichées : affine les filtres.";box.appendChild(m)}
+}
+const norm2=t=>String(t??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+function renderSearch(){if(srchView.dataset.built!==String(ALL.length)||!document.getElementById("filt"))buildSearch();else searchResults()}
+
 /* ---- Fiche séance ---- */
 const detailEl=document.getElementById("detail");const hintEl=document.querySelector(".swipe-hint");
 let inDetail=false,lastFocus=null;
@@ -459,11 +525,11 @@ function openDetail(s,d){
     ${c.int?`<div class="intbox"><b>Interrogation de 5 min /10</b> en début d’heure (filet de note du T${c.int}, avant le conseil ; remplace le rituel des 3 questions ce jour-là).</div>`:""}`;
   document.getElementById("back").onclick=()=>history.back();
   if(!inDetail){history.pushState({detail:1},"");inDetail=true}
-  mainView.style.display="none";clsView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
+  mainView.style.display="none";clsView.hidden=true;srchView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
   window.scrollTo(0,0);document.getElementById("back").focus({preventScroll:true});
 }
 function closeDetail(){if(!inDetail)return;inDetail=false;render();detailEl.hidden=true;dotsEl.style.visibility="";hintEl.hidden=false;
-  mainView.style.display=view<0?"grid":"none";clsView.hidden=view<0;if(lastFocus)lastFocus.focus({preventScroll:true})}
+  showViews();if(lastFocus)lastFocus.focus({preventScroll:true})}
 window.addEventListener("popstate",closeDetail);
 
 /* ---- Paramètres ---- */
@@ -499,7 +565,7 @@ function openSettings(){
   pv();
   document.getElementById("back").onclick=()=>history.back();
   if(!inDetail){history.pushState({detail:1},"");inDetail=true}
-  mainView.style.display="none";clsView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
+  mainView.style.display="none";clsView.hidden=true;srchView.hidden=true;dotsEl.style.visibility="hidden";hintEl.hidden=true;detailEl.hidden=false;
   window.scrollTo(0,0);
 }
 function say(t,ok){const m=document.getElementById("msg");if(m){m.textContent=t;m.className="msg "+(ok?"ok":"err")}}
@@ -553,7 +619,7 @@ async function importFile(f){
 function refreshNow(){
   const wasHome=key(base)===key(home);today=new Date();home=homeWeek(today);
   if(wasHome)base=new Date(home);
-  render();if(view>=0&&!inDetail)renderCls();
+  render();if(view>=0&&!inDetail)renderPage();
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshNow()});
 window.addEventListener("focus",refreshNow);window.addEventListener("pageshow",refreshNow);
