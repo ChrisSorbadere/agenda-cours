@@ -12,7 +12,7 @@ const MOT_DE_PASSE = "CHANGE-MOI";
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (MOT_DE_PASSE === "CHANGE-MOI") return json_({ error: "Le mot de passe du script n'a pas été changé." });
+  if (MOT_DE_PASSE.indexOf("-MOI") > -1) return json_({ error: "Le mot de passe du script n'a pas été changé." });
   if (p.key !== MOT_DE_PASSE) return json_({ error: "Mot de passe incorrect." });
   try {
     if (p.action === "agendas") return json_({ agendas: agendas_() });
