@@ -141,7 +141,7 @@ html,body{overscroll-behavior-y:none}
 .dot.sq{border-radius:2px}
 .dot.sq.on{background:var(--lun)}
 #calBtn{opacity:.45}#calBtn.on{opacity:1;border-color:var(--lun);box-shadow:inset 0 0 0 2px var(--lun)}
-.calstat{font-size:.85rem;color:var(--muted);margin-top:4px}.calstat.err{color:var(--eval)}
+.calstat{display:block;font:inherit;font-size:.85rem;color:var(--muted);margin-top:4px;background:none;border:0;padding:2px 0;text-align:left;cursor:pointer}.calstat:not(.err) b{color:var(--lun);font-weight:700}.calstat.err{color:var(--eval)}
 .gev{border:1.5px dashed var(--line);border-left:6px solid var(--gc);border-radius:8px;padding:6px 10px;display:grid;gap:2px;background:transparent;cursor:pointer}
 .gev.past{opacity:.5}
 .gev:focus-visible,.gchip:focus-visible{outline:3px solid var(--lun);outline-offset:2px}
@@ -170,7 +170,7 @@ html,body{overscroll-behavior-y:none}
     <div>
       <h1 id="title">Ma semaine</h1>
       <div class="range" id="range"></div>
-      <div class="calstat" id="calstat" hidden></div>
+      <button type="button" class="calstat" id="calstat" hidden title="Actualiser l’agenda"></button>
     </div>
     <div class="nav">
       <button id="prev" type="button" title="Semaine précédente" aria-label="Semaine précédente">⏪</button>
@@ -682,7 +682,7 @@ async function calCall(params){
   if(j.error)throw new Error(j.error);return j}
 async function calLoad(force){
   if(!calOn())return;const wk=key(base),w=CALC.weeks[wk];
-  if(!force&&w&&Date.now()-w.t<10*60000)return;
+  if(force!=="manuel"&&w&&Date.now()-w.t<(force?5000:2*60000))return; /* 2 min en continu ; au retour dans l’appli ou sur demande : immédiat */
   if(calBusy===wk)return;calBusy=wk;calErr="";calStatus();
   try{const j=await calCall({action:"evenements",du:wk,au:addDays(wk,6),agendas:CFG.cal.ids.join(",")});
     CALC.weeks[wk]={t:Date.now(),ev:j.evenements||[]};saveCalc()}
@@ -693,7 +693,8 @@ function calStatus(){const calBtn=document.getElementById("calBtn"),calStat=docu
   if(!calOn()){calStat.hidden=true;return}calStat.hidden=false;const w=CALC.weeks[key(base)];
   const hhmm=t=>{const d=new Date(t);return pad(d.getDate())+"/"+pad(d.getMonth()+1)+" à "+pad(d.getHours())+"h"+pad(d.getMinutes())};
   calStat.className="calstat"+(calErr?" err":"");
-  calStat.textContent=calBusy?"📅 Chargement de l’agenda…":calErr?("📅 Agenda : "+calErr+(w?" · affichage du "+hhmm(w.t):"")):w?("📅 Agenda à jour ("+hhmm(w.t)+")"):"📅 Agenda : pas encore chargé";}
+  const act=' · <b>⟳ actualiser</b>';
+  calStat.innerHTML=calBusy?"📅 Chargement de l’agenda…":calErr?("📅 Agenda : "+esc(calErr)+(w?" · affichage du "+hhmm(w.t):"")+act):w?("📅 Agenda à jour ("+hhmm(w.t)+")"+act):"📅 Agenda : pas encore chargé"+act;}
 function evCard(e,d){const el=document.createElement("div");el.className="gev";el.style.setProperty("--gc",e.couleur||"var(--muted)");
   const fin=new Date(e.fin.slice(0,10)+"T"+e.fin.slice(11,16));if(fin<today)el.classList.add("past");
   const t=e.debut.slice(11,16).replace(":","h")+" – "+e.fin.slice(11,16).replace(":","h");
@@ -752,8 +753,9 @@ function refreshNow(){
   if(wasHome)base=new Date(home);
   render();if(view>=0&&!inDetail)renderPage();calLoad();
 }
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshNow()});
-window.addEventListener("focus",refreshNow);window.addEventListener("pageshow",refreshNow);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){refreshNow();calLoad(true)}});
+window.addEventListener("focus",()=>{refreshNow();calLoad(true)});window.addEventListener("pageshow",()=>{refreshNow();calLoad(true)});
+document.getElementById("calstat").onclick=()=>calLoad("manuel");
 setInterval(refreshNow,60000);
 calStatus();calLoad();
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
