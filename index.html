@@ -20,7 +20,7 @@ body{margin:0}
   --c6A:#0e7c86; --c6B:#14a3a0; --c6C:#5cc2b3;
   --c5B:#b5446e; --c5C:#e07a5f;
   --hg:#1f3a5f; --hg-fg:#ffffff; --emc:#f2c14e; --emc-fg:#3a2a00;
-  --eval:#c62828;
+  --eval:#c62828; --evbg:#fdeeee; --evline:#f3c4c4;
   --display:"Fraunces",Georgia,serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif;
   color-scheme:light;
 }
@@ -29,14 +29,14 @@ body{margin:0}
   --lun:#7fb0ec; --mar:#6fd09a; --mer:#f0be5a; --jeu:#b99bea; --ven:#f08aa3;
   --lun-bg:#1c2a3b; --mar-bg:#1a2e23; --mer-bg:#33290f; --jeu-bg:#2a2139; --ven-bg:#371d25;
   --c6A:#2bb3bd; --c6B:#4fd1cc; --c6C:#8fe0d2; --c5B:#e07aa1; --c5C:#f2a088;
-  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b;
+  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b; --evbg:#33201f; --evline:#5c3432;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#141917; --surface:#1d2421; --fg:#eef2ef; --muted:#a4afaa; --line:#2f3934;
   --lun:#7fb0ec; --mar:#6fd09a; --mer:#f0be5a; --jeu:#b99bea; --ven:#f08aa3;
   --lun-bg:#1c2a3b; --mar-bg:#1a2e23; --mer-bg:#33290f; --jeu-bg:#2a2139; --ven-bg:#371d25;
   --c6A:#2bb3bd; --c6B:#4fd1cc; --c6C:#8fe0d2; --c5B:#e07aa1; --c5C:#f2a088;
-  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b;
+  --hg:#9cc3f2; --hg-fg:#0f1d2e; --emc:#f2c14e; --emc-fg:#2a1e00; --eval:#ff7b7b; --evbg:#33201f; --evline:#5c3432;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
@@ -165,6 +165,7 @@ html,body{overscroll-behavior-y:none}
 .s{container-type:inline-size}
 .nxt .ns{display:none}
 @container (max-width:250px){.nxt .nl,.nxt .nw{display:none}.nxt .ns{display:inline}}
+.s.isev,.cs.isev{background:var(--evbg);border-top-color:var(--evline);border-right-color:var(--evline);border-bottom-color:var(--evline)}
 </style>
 </head>
 <body>
@@ -448,7 +449,7 @@ function render(){
     const items=[...shown.map(s=>({t:s.h*60+s.m,s})),...timed.map(e=>({t:+e.debut.slice(11,13)*60+ +e.debut.slice(14,16),e}))].sort((a,b)=>a.t-b.t);
     items.forEach(({s,e})=>{if(e){ul.appendChild(evCard(e,d));return}
       const past=new Date(d.getFullYear(),d.getMonth(),d.getDate(),s.h,s.m+55)<today;
-      const el=document.createElement("div");el.className="s"+(past?" past":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
+      const el=document.createElement("div");el.className="s"+(past?" past":"")+(s.ev?" isev":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
       el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${esc(s.room)}</b></span></div>
         <div class="row r2"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span>${s.next?`<span class="nxt"><span class="nl">Prochain : </span><span class="ns" title="Prochain cours">→ </span><b><span class="nw">${JOURS3[s.next.date.getDay()]} </span>${pad(s.next.date.getDate())}/${pad(s.next.date.getMonth()+1)}</b></span>`:""}</div>`;
       clickable(el,s,d);ul.appendChild(el);
@@ -482,7 +483,7 @@ function renderCls(){
   const list=document.createElement("div");list.className="clist";
   if(!next.length)list.innerHTML='<div class="empty">Plus aucune séance prévue.</div>';
   next.forEach((s,i)=>{const d=s.date,wd=d.getDay();const el=document.createElement("div");
-    el.className="cs"+(i===0?" next":"");el.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
+    el.className="cs"+(i===0?" next":"")+(s.ev?" isev":"");el.style.setProperty("--dc","var(--"+(DCOL[wd]||"lun")+")");
     el.innerHTML=`${i===0?'<span class="tag">Prochaine séance</span>':""}
       <div class="row"><span class="dlabel">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${s.room}</b></span></div>
       <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>`;
@@ -547,7 +548,7 @@ function searchResults(){
   const box=document.getElementById("f-res");box.innerHTML="";
   document.getElementById("f-count").textContent=res.length?res.length+" séance"+(res.length>1?"s":""):"Aucune séance ne correspond.";
   res.slice(0,200).forEach(s=>{const d=s.date,wd=d.getDay();const el=document.createElement("div");
-    el.className="cs"+(new Date(d.getTime()+55*60000)<now?" past":"");el.style.setProperty("--dc","var(--c"+s.cls+")");el.style.setProperty("--cc","var(--c"+s.cls+")");
+    el.className="cs"+(new Date(d.getTime()+55*60000)<now?" past":"")+(s.ev?" isev":"");el.style.setProperty("--dc","var(--c"+s.cls+")");el.style.setProperty("--cc","var(--c"+s.cls+")");
     const t=texteDe(s).replace(/^\((G|H)\)\s*/,"").split(/\s+—\s+/)[0];
     el.innerHTML=`<div class="row"><span class="dlabel" style="color:var(--${DCOL[wd]||"lun"})">${DNAMES[wd]} <b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b></span><span class="room">Salle <b>${esc(s.room)}</b></span></div>
       <div class="row"><span class="time">${s.start} – ${s.end}</span><span class="who"><span class="cls" style="font-size:1.15rem">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>
