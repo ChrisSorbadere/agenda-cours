@@ -158,6 +158,13 @@ html,body{overscroll-behavior-y:none}
 .cdot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
 .fields .full{grid-column:1/-1}
 .callist{display:grid;gap:8px}
+.row.r2{flex-wrap:nowrap}
+.row.r2 .who{flex-wrap:nowrap;min-width:0;flex:none}
+.nxt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;color:var(--muted);text-align:right}
+.nxt b{color:var(--fg);font-variant-numeric:tabular-nums}
+.s{container-type:inline-size}
+.nxt .ns{display:none}
+@container (max-width:250px){.nxt .nl,.nxt .nw{display:none}.nxt .ns{display:inline}}
 </style>
 </head>
 <body>
@@ -347,6 +354,7 @@ const RAW=`04/09|10h00 HG01 6C 203
 const CLASSES=["6A","6B","6C","5B","5C"];
 const DAYS=[["Lundi","lun"],["Mardi","mar"],["Mercredi","mer"],["Jeudi","jeu"],["Vendredi","ven"]];
 const pad=n=>String(n).padStart(2,"0");
+const JOURS3=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const key=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const hm=min=>pad(Math.floor(min/60))+"h"+pad(min%60);
@@ -368,6 +376,7 @@ function setData(list){
   Object.keys(byDay).forEach(k=>byDay[k].sort((a,b)=>a.h*60+a.m-(b.h*60+b.m)));
   Object.keys(byDay).sort().forEach(k=>{const [y,mo,da]=k.split("-").map(Number);
     byDay[k].forEach(s=>{s.date=new Date(y,mo-1,da,s.h,s.m);ALL.push(s)})});
+  const last={};ALL.forEach(s=>{s.next=null;if(last[s.cls])last[s.cls].next=s;last[s.cls]=s}); /* prochain cours de la même classe */
 }
 /* Réglages et données importées, conservés sur cet appareil */
 /* Stockage : clés propres à Agenda Cours (le domaine chrissorbadere.github.io est partagé avec d'autres applis) */
@@ -441,7 +450,7 @@ function render(){
       const past=new Date(d.getFullYear(),d.getMonth(),d.getDate(),s.h,s.m+55)<today;
       const el=document.createElement("div");el.className="s"+(past?" past":"");el.style.setProperty("--cc","var(--c"+s.cls+")");
       el.innerHTML=`<div class="row"><span class="time">${s.start} – ${s.end}</span><span class="room">Salle <b>${esc(s.room)}</b></span></div>
-        <div class="row"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span></div>`;
+        <div class="row r2"><span class="who"><span class="cls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</span>${s.next?`<span class="nxt"><span class="nl">Prochain : </span><span class="ns" title="Prochain cours">→ </span><b><span class="nw">${JOURS3[s.next.date.getDay()]} </span>${pad(s.next.date.getDate())}/${pad(s.next.date.getMonth()+1)}</b></span>`:""}</div>`;
       clickable(el,s,d);ul.appendChild(el);
     });
     col.appendChild(ul);week.appendChild(col);
