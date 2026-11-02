@@ -167,6 +167,8 @@ html,body{overscroll-behavior-y:none}
 @container (max-width:250px){.nxt .nl,.nxt .nw{display:none}.nxt .ns{display:inline}}
 .s.isint,.cs.isint{background:var(--intbg);border-top-color:var(--intline);border-right-color:var(--intline);border-bottom-color:var(--intline)}
 .s.isev,.cs.isev{background:var(--evbg);border-top-color:var(--evline);border-right-color:var(--evline);border-bottom-color:var(--evline)}
+.proj{text-decoration:none}
+.projname{font-size:.8rem;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -394,7 +396,7 @@ const LS="agendacours.";
     localStorage.removeItem(k)}
   const f=localStorage.getItem("filtres");if(f){try{const v=JSON.parse(f);if(Array.isArray(v)&&v.every(x=>/^(6A|6B|6C|5B|5C|HG|EMC)$/.test(x)))localStorage.removeItem("filtres")}catch(e){}}
 }catch(e){}})();
-const DEF={evSym:"☢️",evTxt:"",intSym:"",intTxt:"",cal:{on:false,url:"",key:"",ids:[],list:[]}};
+const DEF={evSym:"☢️",evTxt:"",intSym:"",intTxt:"",projAcct:"",cal:{on:false,url:"",key:"",ids:[],list:[]}};
 let CFG={...DEF};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem(LS+"reglages")||"{}"))}catch(e){}
 CFG.cal=Object.assign({on:false,url:"",key:"",ids:[],list:[]},CFG.cal||{});
@@ -577,6 +579,8 @@ function openDetail(s,d){
       <span class="dcls">${s.cls}</span><span class="badge ${s.mat}">${s.mat} ${s.num}</span>${mark(s)}</div>
     <div class="dmeta"><span class="dday">${DNAMES[wd]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</span><span><b>${s.start} – ${s.end}</b></span><span>Salle <b>${s.room}</b></span></div>
     <div><div class="disc">${disc}</div><h2 class="dtitle">${esc(title)}</h2></div>
+    <div class="btns"><a class="btn primary proj" href="${projUrl(s)}" target="_blank" rel="noopener">📽️ Ouvrir la projection</a></div>
+    <p class="hint projname">Fichier recherché dans Drive : ${esc(projName(s))}.docx</p>
     ${parts.length?'<ul class="dparts">'+parts.map(p=>`<li class="${/^Cahier|^fiche/i.test(p)?"cahier":/not[ée]|ÉVALUATION|évaluation/.test(p)?"note":""}">${esc(p)}</li>`).join("")+"</ul>":""}
     ${c.int?`<div class="intbox"><b>Interrogation de 5 min /10</b> en début d’heure (filet de note du T${c.int}, avant le conseil ; remplace le rituel des 3 questions ce jour-là).</div>`:""}`;
   document.getElementById("back").onclick=()=>history.back();
@@ -587,6 +591,10 @@ function openDetail(s,d){
 function closeDetail(){if(!inDetail)return;inDetail=false;render();calLoad();detailEl.hidden=true;dotsEl.style.visibility="";hintEl.hidden=false;
   showViews();if(lastFocus)lastFocus.focus({preventScroll:true})}
 window.addEventListener("popstate",closeDetail);
+
+/* ---- Fichier de projection (recherche Drive) ---- */
+function projName(s){return "Seance_"+s.mat+s.num+"_"+s.cls[0]+"e_PROJECTION"}
+function projUrl(s){return "https://drive.google.com/drive/search?q="+encodeURIComponent('"'+projName(s)+'"')+(CFG.projAcct?"&authuser="+encodeURIComponent(CFG.projAcct):"")}
 
 /* ---- Paramètres ---- */
 function openSettings(){
@@ -611,6 +619,10 @@ function openSettings(){
     <p class="msg" id="cal-msg" role="status"></p>
     <div class="callist" id="cal-list"></div>
     <p class="hint">L’adresse et le mot de passe restent sur cet appareil. Mise en place : voir le guide « Afficher Google Agenda dans Agenda Cours ».</p></section>
+  <section class="set"><h3>Projections</h3>
+    <p class="hint">Le bouton « 📽️ Ouvrir la projection » d’une séance cherche dans Google Drive le fichier Seance_HG05_5e_PROJECTION.docx correspondant.</p>
+    <div class="fields"><label class="full">Compte Google où sont les fichiers (facultatif)<input id="projAcct" type="email" autocomplete="off" value="${esc(CFG.projAcct)}" placeholder="ex. prenom.nom@gmail.com"></label></div>
+    <p class="hint">Laisse vide pour utiliser le compte ouvert sur le téléphone. À remplir si tu as plusieurs comptes Google et que Drive s’ouvre sur le mauvais.</p></section>
   <section class="set"><h3>Évaluations notées (★ dans le fichier)</h3>
     <div class="fields"><label>Symbole<input id="evSym" maxlength="8" value="${esc(CFG.evSym)}"></label>
       <label>Texte (facultatif)<input id="evTxt" maxlength="24" value="${esc(CFG.evTxt)}" placeholder="ex. Éval"></label></div>
@@ -622,6 +634,7 @@ function openSettings(){
   <section class="set"><h3>Aperçu</h3><div class="s" id="prev-card" style="--cc:var(--c6A);cursor:default"></div></section>`;
   const pv=()=>{document.getElementById("prev-card").innerHTML=`<div class="row"><span class="time">10h00 – 10h55</span><span class="room">Salle <b>214</b></span></div>
     <div class="row"><span class="who"><span class="cls">6A</span><span class="badge HG">HG 19</span>${mark({ev:1})}</span><span class="who"><span class="badge EMC">EMC 05</span>${mark({int:1})}</span></div>`};
+  document.getElementById("projAcct").addEventListener("input",e=>{CFG.projAcct=e.target.value.trim();saveCfg()});
   ["evSym","evTxt","intSym","intTxt"].forEach(id=>{const i=document.getElementById(id);i.addEventListener("input",()=>{CFG[id]=i.value.trim();saveCfg();pv()})});
   detailEl.querySelectorAll(".quick").forEach(q=>q.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
     const id=q.dataset.target,v=b.dataset.v!=null?b.dataset.v:b.textContent;document.getElementById(id).value=v;CFG[id]=v;saveCfg();pv()}));
